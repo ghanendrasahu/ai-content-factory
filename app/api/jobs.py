@@ -7,12 +7,10 @@ from app.ai.transcriber import Transcriber
 from app.core.storage import jobs
 from app.models.job import Job
 from app.schemas.job import DownloadJobRequest
+
 from app.services.download_service import DownloadService
 from app.services.clip_renderer import ClipRenderer
-from app.services.subtitle_burner import SubtitleBurner
 from app.services.video_optimizer import VideoOptimizer
-
-
 
 
 router = APIRouter(
@@ -47,10 +45,7 @@ async def get_job(job_id: str):
     job = jobs.get(job_id)
 
     if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+        raise HTTPException(status_code=404, detail="Job not found")
 
     return job
 
@@ -60,18 +55,12 @@ async def get_job(job_id: str):
 # ---------------------------------------------------------------------
 
 @router.post("/{job_id}/download")
-async def download_video(
-    job_id: str,
-    request: DownloadJobRequest,
-):
+async def download_video(job_id: str, request: DownloadJobRequest):
 
     job = jobs.get(job_id)
 
     if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+        raise HTTPException(status_code=404, detail="Job not found")
 
     title, path = DownloadService.download(str(request.url))
 
@@ -97,16 +86,10 @@ async def transcribe_video(job_id: str):
     job = jobs.get(job_id)
 
     if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+        raise HTTPException(status_code=404, detail="Job not found")
 
     if not job.video_path:
-        raise HTTPException(
-            status_code=400,
-            detail="Video not downloaded.",
-        )
+        raise HTTPException(status_code=400, detail="Video not downloaded")
 
     result = Transcriber.transcribe(job.video_path)
 
@@ -130,23 +113,26 @@ async def detect_clips(job_id: str):
     job = jobs.get(job_id)
 
     if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
+        raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.transcript is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Transcript not found",
-        )
+    if not job.transcript:
+        raise HTTPException(status_code=400, detail="Transcript not found")
 
     clips = ClipDetector.detect(job.transcript)
 
     job.clips = clips
     job.status = "clips_detected"
 
-    return job
+    return {
+        "status": job.status,
+        "clips_count": len(clips)
+    }
+
+
+# ---------------------------------------------------------------------
+# Render Clips
+# ---------------------------------------------------------------------
+
 @router.post("/{job_id}/render-clips")
 async def render_clips(job_id: str):
 
@@ -158,6 +144,9 @@ async def render_clips(job_id: str):
     if not job.clips:
         raise HTTPException(status_code=400, detail="No clips found")
 
+    if not job.video_path:
+        raise HTTPException(status_code=400, detail="No video found")
+
     output_files = ClipRenderer.render(job.video_path, job.clips)
 
     job.status = "rendered"
@@ -166,31 +155,12 @@ async def render_clips(job_id: str):
         "status": job.status,
         "clips": output_files
     }
-@router.post("/{job_id}/burn-subtitles")
-async def burn_subtitles(job_id: str):
 
-    job = jobs.get(job_id)
 
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+# ---------------------------------------------------------------------
+# Make Vertical Video
+# ---------------------------------------------------------------------
 
-    if not job.transcript:
-        raise HTTPException(status_code=400, detail="No transcript found")
-
-    output_path = f"outputs/{job.job_id}_subtitled.mp4"
-
-    result = SubtitleBurner.burn(
-        job.video_path,
-        job.transcript,
-        output_path
-    )
-
-    job.status = "subtitled"
-
-    return {
-        "status": job.status,
-        "output": result
-    }
 @router.post("/{job_id}/make-vertical")
 async def make_vertical(job_id: str):
 
@@ -206,7 +176,8 @@ async def make_vertical(job_id: str):
 
     result = VideoOptimizer.make_vertical(
         job.video_path,
-        output_path
+        output_path,
+        job.transcript
     )
 
     job.status = "vertical_ready"
