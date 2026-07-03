@@ -28,11 +28,14 @@ class Pipeline:
         job.step = "downloading"
         job.progress = 10
 
-        title, video_path = DownloadService.download(job.video_url)
+        if not job.video_path:
+            print("Downloading video...")
+            _, video_path = DownloadService.download(job.video_url)
+            job.video_path = video_path
+        else:
+            print("Video already downloaded. Skipping download.")
 
-        job.video_path = video_path
         job.status = "downloaded"
-
         print("✓ Download completed")
 
         # -------------------
