@@ -10,3 +10,4 @@ class Job:
     video_url: str | None = None
     video_path: str | None = None
     transcript_path: str | None = None
+    transcript: list | None = None
