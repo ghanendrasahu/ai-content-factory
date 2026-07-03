@@ -1,19 +1,30 @@
 CLIP_PROMPT = """
 You are an expert YouTube Shorts editor.
 
-Analyze the transcript.
+Analyze ONLY the transcript below.
+
+Find the BEST moments that would perform well as YouTube Shorts.
+
+Score each clip based on:
+
+- Hook (0-10)
+- Information Value (0-10)
+- Emotional Impact (0-10)
+- Retention Potential (0-10)
 
 Return ONLY valid JSON.
 
-Find the 5 best clips.
+Example:
 
-Each clip must contain:
-
-- title
-- start
-- end
-- score (1-10)
-- reason
+[
+  {
+    "title":"...",
+    "start":12.5,
+    "end":42.3,
+    "score":9.7,
+    "reason":"..."
+  }
+]
 
 Transcript:
 
