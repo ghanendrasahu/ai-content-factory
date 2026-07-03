@@ -14,4 +14,9 @@ class Job:
     transcript: Optional[list] = None
     clips: Optional[list] = None
 
+
+    step: str | None = None
+    progress: int = 0
+    error: str | None = None
+
     result: Optional[list] = field(default_factory=list)

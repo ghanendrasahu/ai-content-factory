@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from app.ai.clip_detector import ClipDetector
 from app.ai.transcriber import Transcriber
@@ -11,6 +11,7 @@ from app.schemas.job import DownloadJobRequest
 from app.services.download_service import DownloadService
 from app.services.clip_renderer import ClipRenderer
 from app.services.video_optimizer import VideoOptimizer
+from app.services.pipeline import Pipeline
 
 
 router = APIRouter(
@@ -19,26 +20,39 @@ router = APIRouter(
 )
 
 
-# ---------------------------------------------------------------------
-# Create Job
-# ---------------------------------------------------------------------
+# =========================
+# BACKGROUND PIPELINE
+# =========================
+def run_pipeline_background(job_id: str):
+    from app.core.storage import jobs
+    from app.services.pipeline import Pipeline
 
+    job = jobs.get(job_id)
+
+    if not job:
+        return
+
+    try:
+        Pipeline.run(job)
+    except Exception as e:
+        job.status = f"failed: {str(e)}"
+        job.error = str(e)
+
+
+# =========================
+# CREATE JOB
+# =========================
 @router.post("")
 async def create_job():
-
     job_id = str(uuid4())
-
     job = Job(job_id=job_id)
-
     jobs[job_id] = job
-
     return job
 
 
-# ---------------------------------------------------------------------
-# Get Job
-# ---------------------------------------------------------------------
-
+# =========================
+# GET JOB
+# =========================
 @router.get("/{job_id}")
 async def get_job(job_id: str):
 
@@ -47,13 +61,19 @@ async def get_job(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return job
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "step": job.step,
+        "progress": job.progress,
+        "video_path": getattr(job, "final_video", None),
+        "error": getattr(job, "error", None),
+    }
 
 
-# ---------------------------------------------------------------------
-# Download Video
-# ---------------------------------------------------------------------
-
+# =========================
+# DOWNLOAD VIDEO
+# =========================
 @router.post("/{job_id}/download")
 async def download_video(job_id: str, request: DownloadJobRequest):
 
@@ -76,10 +96,9 @@ async def download_video(job_id: str, request: DownloadJobRequest):
     }
 
 
-# ---------------------------------------------------------------------
-# Transcribe Video
-# ---------------------------------------------------------------------
-
+# =========================
+# TRANSCRIBE VIDEO
+# =========================
 @router.post("/{job_id}/transcribe")
 async def transcribe_video(job_id: str):
 
@@ -103,10 +122,9 @@ async def transcribe_video(job_id: str):
     }
 
 
-# ---------------------------------------------------------------------
-# Detect Clips
-# ---------------------------------------------------------------------
-
+# =========================
+# DETECT CLIPS
+# =========================
 @router.post("/{job_id}/detect-clips")
 async def detect_clips(job_id: str):
 
@@ -129,10 +147,9 @@ async def detect_clips(job_id: str):
     }
 
 
-# ---------------------------------------------------------------------
-# Render Clips
-# ---------------------------------------------------------------------
-
+# =========================
+# RENDER CLIPS
+# =========================
 @router.post("/{job_id}/render-clips")
 async def render_clips(job_id: str):
 
@@ -157,10 +174,9 @@ async def render_clips(job_id: str):
     }
 
 
-# ---------------------------------------------------------------------
-# Make Vertical Video
-# ---------------------------------------------------------------------
-
+# =========================
+# MAKE VERTICAL VIDEO
+# =========================
 @router.post("/{job_id}/make-vertical")
 async def make_vertical(job_id: str):
 
@@ -176,13 +192,38 @@ async def make_vertical(job_id: str):
 
     result = VideoOptimizer.make_vertical(
         job.video_path,
-        output_path,
-        job.transcript
+        output_path
     )
 
+    job.final_video = result
     job.status = "vertical_ready"
 
     return {
         "status": job.status,
         "output": result
+    }
+
+
+# =========================
+# FULL PIPELINE
+# =========================
+@router.post("/{job_id}/process")
+async def process_job(job_id: str, background_tasks: BackgroundTasks):
+
+    job = jobs.get(job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not job.video_url:
+        raise HTTPException(status_code=400, detail="No video URL set")
+
+    job.status = "processing"
+
+    background_tasks.add_task(run_pipeline_background, job_id)
+
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "message": "Processing started in background"
     }
