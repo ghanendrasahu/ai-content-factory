@@ -67,7 +67,6 @@ async def create_job():
 # =========================
 @router.get("/{job_id}")
 async def get_job(job_id: str):
-
     job = _get_job_or_404(job_id)
 
     return {
@@ -75,22 +74,26 @@ async def get_job(job_id: str):
         "status": job.status,
         "step": getattr(job, "step", ""),
         "progress": getattr(job, "progress", 0),
-
         # INPUT VIDEO
         "video_path": getattr(job, "video_path", None),
-
         # OUTPUT VIDEO
         "final_video": getattr(job, "final_video", None),
-
         # CLIPS (AI detected)
         "clips": getattr(job, "clips", []),
-
         # RENDERED OUTPUTS
         "clip_outputs": getattr(job, "clip_outputs", []),
-
         # CONTENT PACK (future)
         "content_pack": getattr(job, "content_pack", None),
-
+        "thumbnail_path": getattr(job, "thumbnail_path", None),
+        "subtitle_path": getattr(job, "subtitle_path", None),
+        "platform_exports": getattr(job, "platform_exports", {}),
+        "elapsed_seconds": getattr(job, "elapsed_seconds", 0),
+        "estimated_remaining_seconds": getattr(
+            job,
+            "estimated_remaining_seconds",
+            None,
+        ),
+        "failure_report": getattr(job, "failure_report", None),
         # ERROR
         "error": getattr(job, "error", None),
     }
@@ -101,7 +104,6 @@ async def get_job(job_id: str):
 # =========================
 @router.post("/{job_id}/download")
 async def download_video(job_id: str, request: DownloadJobRequest):
-
     job = _get_job_or_404(job_id)
 
     try:
@@ -129,7 +131,6 @@ async def download_video(job_id: str, request: DownloadJobRequest):
 # =========================
 @router.post("/{job_id}/transcribe")
 async def transcribe_video(job_id: str):
-
     job = _get_job_or_404(job_id)
 
     if not job.video_path:
@@ -158,7 +159,6 @@ async def transcribe_video(job_id: str):
 # =========================
 @router.post("/{job_id}/detect-clips")
 async def detect_clips(job_id: str):
-
     job = _get_job_or_404(job_id)
 
     if not job.transcript:
@@ -186,7 +186,6 @@ async def detect_clips(job_id: str):
 # =========================
 @router.post("/{job_id}/render-clips")
 async def render_clips(job_id: str):
-
     job = _get_job_or_404(job_id)
 
     if not job.clips:
@@ -197,11 +196,7 @@ async def render_clips(job_id: str):
 
     try:
         job.set_state("rendering", 70)
-        output_files = ClipRenderer.render(
-            job.video_path,
-            job.clips,
-            job.job_id
-        )
+        output_files = ClipRenderer.render(job.video_path, job.clips, job.job_id)
     except Exception as e:
         logger.exception("api.render.failed job_id=%s", job_id)
         _fail_job(job, e)
@@ -221,7 +216,6 @@ async def render_clips(job_id: str):
 # =========================
 @router.post("/{job_id}/make-vertical")
 async def make_vertical(job_id: str):
-
     job = _get_job_or_404(job_id)
 
     if not job.video_path:
@@ -256,7 +250,6 @@ async def make_vertical(job_id: str):
 # =========================
 @router.post("/{job_id}/process")
 async def process_job(job_id: str, background_tasks: BackgroundTasks):
-
     job = _get_job_or_404(job_id)
 
     if not job.video_url:
@@ -272,4 +265,3 @@ async def process_job(job_id: str, background_tasks: BackgroundTasks):
         "status": job.status,
         "message": "Processing started in background",
     }
-

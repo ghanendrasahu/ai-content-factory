@@ -6,8 +6,14 @@ from app.ai.content_packager import ContentPackager
 from app.ai.transcriber import Transcriber
 from app.core.paths import OUTPUT_DIR, cleanup_job_temp_files, ensure_directories
 from app.logger import logger
+from app.config import settings
+from app.services.self_healing import RecoveryStrategies, RetryManager
 from app.services.clip_renderer import ClipRenderer
 from app.services.download_service import DownloadService
+from app.services.platform_export import PlatformExportPresets
+from app.services.progress import ProgressTracker
+from app.services.subtitles import SubtitleService
+from app.services.thumbnail import ThumbnailGenerator
 from app.services.video_optimizer import VideoOptimizer
 
 
@@ -20,22 +26,27 @@ class Pipeline:
     def run(job):
         ensure_directories()
         pipeline_started_at = perf_counter()
+        tracker = ProgressTracker()
+        retry = RetryManager()
 
         logger.info(f"Pipeline started for job: {job.job_id}")
 
         try:
-            Pipeline._set_state(job, "queued", 0)
+            job.apply_progress(tracker.snapshot("queued", 0))
             job.error = None
 
             logger.info("Step 1/5 downloading")
-            Pipeline._set_state(job, "downloading", 10)
+            job.apply_progress(tracker.snapshot("downloading", 10))
 
             if not job.video_url and not job.video_path:
                 raise ValueError("No video URL provided")
 
             if not job.video_path:
                 logger.info("Downloading video...")
-                _, video_path = DownloadService.download(job.video_url)
+                _, video_path = retry.run(
+                    lambda: DownloadService.download(job.video_url),
+                    "download",
+                )
                 job.video_path = video_path
             else:
                 logger.info("Video already downloaded. Skipping download.")
@@ -44,9 +55,9 @@ class Pipeline:
             logger.info("Download completed: %s", video_path)
 
             logger.info("Step 2/5 transcribing")
-            Pipeline._set_state(job, "transcribing", 30)
+            job.apply_progress(tracker.snapshot("transcribing", 30))
 
-            result = Transcriber.transcribe(video_path)
+            result = retry.run(lambda: Transcriber.transcribe(video_path), "whisper")
             job.transcript = result["transcript"]
 
             if not job.transcript:
@@ -55,23 +66,32 @@ class Pipeline:
             logger.info("Transcription completed: %s segments", len(job.transcript))
 
             logger.info("Step 3/5 detecting")
-            Pipeline._set_state(job, "detecting", 50)
+            job.apply_progress(tracker.snapshot("detecting", 45))
 
-            clips = ClipDetector.detect(job.transcript)
+            clips = retry.run(lambda: ClipDetector.detect(job.transcript), "detect")
             if not clips:
                 raise ValueError("No clips detected")
 
             job.clips = clips
-            job.content_pack = ContentPackager.generate(job.transcript, clips)
             logger.info("Clip detection completed: %s clips", len(clips))
 
-            logger.info("Step 4/5 rendering")
-            Pipeline._set_state(job, "rendering", 70)
+            logger.info("Step 4/6 content_generation")
+            job.apply_progress(tracker.snapshot("content_generation", 55))
+            job.content_pack = retry.run(
+                lambda: ContentPackager.generate(job.transcript, clips),
+                "content_generation",
+            )
 
-            clip_outputs = ClipRenderer.render(
-                video_path,
-                job.clips,
-                job.job_id,
+            logger.info("Step 4/5 rendering")
+            job.apply_progress(tracker.snapshot("rendering", 70))
+
+            clip_outputs = retry.run(
+                lambda: ClipRenderer.render(
+                    video_path,
+                    job.clips,
+                    job.job_id,
+                ),
+                "render",
             )
 
             if not clip_outputs:
@@ -84,20 +104,53 @@ class Pipeline:
             logger.info("Rendering completed: %s clips", len(clip_outputs))
 
             logger.info("Step 5/5 finalizing")
-            Pipeline._set_state(job, "optimizing", 90)
+            job.apply_progress(tracker.snapshot("optimizing", 90))
 
             vertical_output = OUTPUT_DIR / f"{job.job_id}_vertical.mp4"
             source_clip = Pipeline._require_file(clip_outputs[0], "Rendered clip")
 
-            final_video = VideoOptimizer.make_vertical(
-                source_clip,
-                str(vertical_output),
-                job.transcript,
+            final_video = retry.run(
+                lambda: VideoOptimizer.make_vertical(
+                    source_clip,
+                    str(vertical_output),
+                    job.transcript,
+                ),
+                "optimize",
             )
 
             job.final_video = Pipeline._require_file(final_video, "Vertical video")
 
-            Pipeline._set_state(job, "completed", 100)
+            if settings.ENABLE_SUBTITLES and job.transcript:
+                subtitle_path = OUTPUT_DIR / f"{job.job_id}.srt"
+                job.subtitle_path = SubtitleService.generate_srt(
+                    job.transcript,
+                    subtitle_path,
+                )
+                subtitled_output = OUTPUT_DIR / f"{job.job_id}_vertical_subtitled.mp4"
+                job.final_video = retry.run(
+                    lambda: SubtitleService.burn(
+                        job.final_video,
+                        job.subtitle_path,
+                        str(subtitled_output),
+                    ),
+                    "subtitles",
+                )
+
+            if settings.ENABLE_THUMBNAILS:
+                title = (job.content_pack or {}).get("title", "AI Content Factory")
+                job.thumbnail_path = ThumbnailGenerator.generate(
+                    job.final_video,
+                    title,
+                    job.job_id,
+                )
+
+            if settings.ENABLE_PLATFORM_EXPORTS:
+                job.platform_exports = {
+                    key: preset.__dict__
+                    for key, preset in PlatformExportPresets.all().items()
+                }
+
+            job.apply_progress(tracker.snapshot("completed", 100))
             cleanup_job_temp_files(job.job_id)
 
             logger.info(
@@ -111,6 +164,7 @@ class Pipeline:
         except Exception as e:
             job.set_state("failed", job.progress)
             job.error = str(e)
+            job.failure_report = RecoveryStrategies.diagnose(e).__dict__
             cleanup_job_temp_files(job.job_id)
             logger.exception(f"Pipeline failed for job: {job.job_id}")
             raise

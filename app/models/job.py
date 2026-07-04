@@ -6,6 +6,7 @@ VALID_JOB_STATES = {
     "downloading",
     "transcribing",
     "detecting",
+    "content_generation",
     "rendering",
     "optimizing",
     "completed",
@@ -33,6 +34,12 @@ class Job:
     clip_outputs: list[str] = field(default_factory=list)
     final_video: Optional[str] = None
     content_pack: Optional[dict] = None
+    thumbnail_path: Optional[str] = None
+    subtitle_path: Optional[str] = None
+    platform_exports: dict = field(default_factory=dict)
+    elapsed_seconds: float = 0.0
+    estimated_remaining_seconds: float | None = None
+    failure_report: Optional[dict] = None
 
     def set_state(self, state: str, progress: int) -> None:
         if state not in VALID_JOB_STATES:
@@ -41,3 +48,8 @@ class Job:
         self.status = state
         self.step = state
         self.progress = max(0, min(progress, 100))
+
+    def apply_progress(self, snapshot) -> None:
+        self.set_state(snapshot.stage, snapshot.progress)
+        self.elapsed_seconds = snapshot.elapsed_seconds
+        self.estimated_remaining_seconds = snapshot.estimated_remaining_seconds

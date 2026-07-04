@@ -6,6 +6,7 @@ import ffmpeg
 from app.config import settings
 from app.core.paths import OUTPUT_DIR, ensure_directories
 from app.logger import logger
+from app.services.hardware import HardwareDetector
 
 
 class VideoOptimizer:
@@ -28,6 +29,7 @@ class VideoOptimizer:
             logger.info("optimizer.start input=%s output=%s", input_file, output_file)
 
             probe = ffmpeg.probe(str(input_file))
+            hardware = HardwareDetector.detect()
             has_audio = any(
                 stream.get("codec_type") == "audio"
                 for stream in probe.get("streams", [])
@@ -53,7 +55,7 @@ class VideoOptimizer:
             )
 
             output_kwargs = dict(
-                vcodec="libx264",
+                vcodec=hardware.video_encoder,
                 preset=settings.VIDEO_PRESET,
                 crf=settings.VIDEO_CRF,
                 pix_fmt="yuv420p",

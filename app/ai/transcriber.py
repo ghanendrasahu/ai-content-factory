@@ -2,6 +2,7 @@ from faster_whisper import WhisperModel
 from pathlib import Path
 
 from app.config import settings
+from app.services.hardware import HardwareDetector
 
 _model = None
 
@@ -10,10 +11,11 @@ def _get_model():
     global _model
 
     if _model is None:
+        hardware = HardwareDetector.detect()
         _model = WhisperModel(
             settings.WHISPER_MODEL,
-            device=settings.WHISPER_DEVICE,
-            compute_type=settings.WHISPER_COMPUTE_TYPE,
+            device=hardware.whisper_device,
+            compute_type=hardware.whisper_compute_type,
         )
 
     return _model

@@ -6,6 +6,7 @@ import ffmpeg
 from app.config import settings
 from app.core.paths import OUTPUT_DIR, ensure_directories
 from app.logger import logger
+from app.services.hardware import HardwareDetector
 from app.services.video_optimizer import VideoOptimizer
 
 
@@ -19,6 +20,7 @@ class ClipRenderer:
             raise FileNotFoundError(f"Input video not found: {input_file}")
 
         probe = ffmpeg.probe(str(input_file))
+        hardware = HardwareDetector.detect()
         has_audio = any(
             stream.get("codec_type") == "audio" for stream in probe.get("streams", [])
         )
@@ -62,7 +64,7 @@ class ClipRenderer:
                 )
 
                 output_kwargs = dict(
-                    vcodec="libx264",
+                    vcodec=hardware.video_encoder,
                     preset=settings.VIDEO_PRESET,
                     crf=settings.VIDEO_CRF,
                     pix_fmt="yuv420p",

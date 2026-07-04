@@ -4,7 +4,6 @@ from app.ai.llm import LLM
 from app.ai.parser import JsonParser
 from app.logger import logger
 
-
 DEFAULT_CONTENT_PACK = {
     "title": "Generated Video",
     "description": "",
@@ -15,10 +14,8 @@ DEFAULT_CONTENT_PACK = {
 
 
 class ContentPackager:
-
     @staticmethod
     def generate(transcript: list, clips: list):
-
         prompt = f"""
 You are a viral YouTube Shorts strategist.
 

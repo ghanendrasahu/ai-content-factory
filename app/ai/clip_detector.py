@@ -4,11 +4,11 @@ from app.ai.chunker import TranscriptChunker
 from app.ai.llm import LLM
 from app.ai.parser import JsonParser
 from app.ai.prompts import CLIP_PROMPT
+from app.config import settings
 from app.logger import logger
 
 
 class ClipDetector:
-
     @staticmethod
     def detect(transcript: list):
         if not transcript:
@@ -20,9 +20,7 @@ class ClipDetector:
 
         for chunk in chunks:
 
-            prompt = CLIP_PROMPT.format(
-                transcript=json.dumps(chunk, indent=2)
-            )
+            prompt = CLIP_PROMPT.format(transcript=json.dumps(chunk, indent=2))
 
             for _ in range(3):
 
@@ -40,12 +38,9 @@ class ClipDetector:
                     logger.warning("Clip detection parse failed: %s", e)
                     continue
 
-        clips.sort(
-            key=lambda x: x.get("score", 0),
-            reverse=True
-        )
+        clips.sort(key=lambda x: x.get("score", 0), reverse=True)
 
-        return clips[:5]
+        return clips[: settings.CLIP_SELECTION_COUNT]
 
     @staticmethod
     def _validate_clips(clips: list) -> list:

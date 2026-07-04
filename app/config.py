@@ -24,11 +24,38 @@ class Settings(BaseSettings):
     VIDEO_PRESET: str = "fast"
     AUDIO_BITRATE: str = "192k"
     YTDLP_FORMAT: str = "bestvideo+bestaudio/best"
+    FFMPEG_BINARY: str = "ffmpeg"
+    FFPROBE_BINARY: str = "ffprobe"
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        extra="ignore"
-    )
+    ENABLE_SUBTITLES: bool = False
+    SUBTITLE_FONT_SIZE: int = 42
+    SUBTITLE_POSITION_MARGIN: int = 180
+
+    ENABLE_THUMBNAILS: bool = True
+    THUMBNAIL_WIDTH: int = 1280
+    THUMBNAIL_HEIGHT: int = 720
+
+    ENABLE_PLATFORM_EXPORTS: bool = False
+    CLIP_SELECTION_COUNT: int = 5
+    MIN_CLIP_DURATION_SECONDS: float = 1.0
+    MAX_CLIP_DURATION_SECONDS: float = 90.0
+
+    ENABLE_GPU: bool = True
+    NVIDIA_ENCODER: str = "h264_nvenc"
+    CPU_ENCODER: str = "libx264"
+
+    RETRY_ATTEMPTS: int = 3
+    RETRY_INITIAL_DELAY_SECONDS: float = 0.5
+    RETRY_BACKOFF_MULTIPLIER: float = 2.0
+
+    CLEANUP_TEMP_MAX_AGE_HOURS: int = 24
+    CLEANUP_OUTPUT_MAX_AGE_HOURS: int = 168
+    CLEANUP_DOWNLOAD_MAX_AGE_HOURS: int = 168
+    CLEANUP_DELETE_DOWNLOADS: bool = False
+
+    STORAGE_BACKEND: str = "local"
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()
