@@ -1,10 +1,8 @@
-from loguru import logger
-import sys
+import logging
 
-logger.remove()
-
-logger.add(
-    sys.stdout,
-    level="INFO",
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level}</level> | {message}"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
 )
+
+logger = logging.getLogger("ai-content-factory")

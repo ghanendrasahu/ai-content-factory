@@ -3,6 +3,7 @@ from app.ai.transcriber import Transcriber
 from app.ai.clip_detector import ClipDetector
 from app.services.clip_renderer import ClipRenderer
 from app.services.video_optimizer import VideoOptimizer
+from app.logger import logger
 
 
 class Pipeline:
@@ -10,8 +11,7 @@ class Pipeline:
     @staticmethod
     def run(job):
 
-        print("=" * 50)
-        print(f"Pipeline started for Job: {job.job_id}")
+        logger.info(f"Pipeline started for job: {job.job_id}")
 
         # -------------------
         # INIT
@@ -23,25 +23,25 @@ class Pipeline:
         # -------------------
         # 1. Download
         # -------------------
-        print("Step 1: Download")
+        logger.info("Step 1: Download")
 
         job.step = "downloading"
         job.progress = 10
 
         if not job.video_path:
-            print("Downloading video...")
+            logger.info("Downloading video...")
             _, video_path = DownloadService.download(job.video_url)
             job.video_path = video_path
         else:
-            print("Video already downloaded. Skipping download.")
+            logger.info("Video already downloaded. Skipping download.")
 
         job.status = "downloaded"
-        print("✓ Download completed")
+        logger.info("✓ Download completed")
 
         # -------------------
         # 2. Transcribe
         # -------------------
-        print("Step 2: Transcribe")
+        logger.info("Step 2: Transcribe")
 
         job.step = "transcribing"
         job.progress = 30
@@ -51,12 +51,12 @@ class Pipeline:
         job.transcript = result["transcript"]
         job.status = "transcribed"
 
-        print("✓ Transcription completed")
+        logger.info("✓ Transcription completed")
 
         # -------------------
         # 3. Detect Clips
         # -------------------
-        print("Step 3: Detect Clips")
+        logger.info("Step 3: Detect Clips")
 
         job.step = "detecting_clips"
         job.progress = 50
@@ -66,12 +66,12 @@ class Pipeline:
         job.clips = clips
         job.status = "clips_detected"
 
-        print(f"✓ {len(clips)} clips detected")
+        logger.info(f"✓ {len(clips)} clips detected")
 
         # -------------------
         # 4. Render Clips
         # -------------------
-        print("Step 4: Render Clips")
+        logger.info("Step 4: Render Clips")
 
         job.step = "rendering_clips"
         job.progress = 70
@@ -81,12 +81,12 @@ class Pipeline:
         job.clip_outputs = clip_outputs
         job.status = "clips_rendered"
 
-        print("✓ Clips rendered")
+        logger.info("✓ Clips rendered")
 
         # -------------------
         # 5. Vertical Video
         # -------------------
-        print("Step 5: Make Vertical")
+        logger.info("Step 5: Make Vertical")
 
         job.step = "making_vertical"
         job.progress = 90
@@ -101,7 +101,7 @@ class Pipeline:
 
         job.final_video = final_video
 
-        print("✓ Vertical video created")
+        logger.info("✓ Vertical video created")
 
         # -------------------
         # DONE
@@ -110,7 +110,6 @@ class Pipeline:
         job.progress = 100
         job.status = "completed"
 
-        print("✓ Pipeline completed successfully")
-        print("=" * 50)
+        logger.info(f"✓ Pipeline completed successfully for job: {job.job_id}")
 
         return job
