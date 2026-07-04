@@ -1,9 +1,10 @@
 from pathlib import Path
+from time import perf_counter
 
 from app.ai.clip_detector import ClipDetector
 from app.ai.content_packager import ContentPackager
 from app.ai.transcriber import Transcriber
-from app.core.paths import OUTPUT_DIR, ensure_directories
+from app.core.paths import OUTPUT_DIR, cleanup_job_temp_files, ensure_directories
 from app.logger import logger
 from app.services.clip_renderer import ClipRenderer
 from app.services.download_service import DownloadService
@@ -11,16 +12,14 @@ from app.services.video_optimizer import VideoOptimizer
 
 
 class Pipeline:
-
     @staticmethod
     def _set_state(job, status: str, progress: int):
-        job.status = status
-        job.step = status
-        job.progress = progress
+        job.set_state(status, progress)
 
     @staticmethod
     def run(job):
         ensure_directories()
+        pipeline_started_at = perf_counter()
 
         logger.info(f"Pipeline started for job: {job.job_id}")
 
@@ -55,8 +54,8 @@ class Pipeline:
 
             logger.info("Transcription completed: %s segments", len(job.transcript))
 
-            logger.info("Step 3/5 clipping")
-            Pipeline._set_state(job, "clipping", 50)
+            logger.info("Step 3/5 detecting")
+            Pipeline._set_state(job, "detecting", 50)
 
             clips = ClipDetector.detect(job.transcript)
             if not clips:
@@ -85,7 +84,7 @@ class Pipeline:
             logger.info("Rendering completed: %s clips", len(clip_outputs))
 
             logger.info("Step 5/5 finalizing")
-            Pipeline._set_state(job, "finalizing", 90)
+            Pipeline._set_state(job, "optimizing", 90)
 
             vertical_output = OUTPUT_DIR / f"{job.job_id}_vertical.mp4"
             source_clip = Pipeline._require_file(clip_outputs[0], "Rendered clip")
@@ -99,17 +98,20 @@ class Pipeline:
             job.final_video = Pipeline._require_file(final_video, "Vertical video")
 
             Pipeline._set_state(job, "completed", 100)
+            cleanup_job_temp_files(job.job_id)
 
             logger.info(
-                f"Pipeline completed successfully for job: {job.job_id}"
+                "Pipeline completed successfully for job=%s elapsed=%.2fs",
+                job.job_id,
+                perf_counter() - pipeline_started_at,
             )
 
             return job
 
         except Exception as e:
-            job.status = "failed"
-            job.step = "failed"
+            job.set_state("failed", job.progress)
             job.error = str(e)
+            cleanup_job_temp_files(job.job_id)
             logger.exception(f"Pipeline failed for job: {job.job_id}")
             raise
 

@@ -1,18 +1,33 @@
 from faster_whisper import WhisperModel
+from pathlib import Path
 
-model = WhisperModel(
-    "small",
-    device="cpu",
-    compute_type="int8",
-)
+from app.config import settings
+
+_model = None
+
+
+def _get_model():
+    global _model
+
+    if _model is None:
+        _model = WhisperModel(
+            settings.WHISPER_MODEL,
+            device=settings.WHISPER_DEVICE,
+            compute_type=settings.WHISPER_COMPUTE_TYPE,
+        )
+
+    return _model
 
 
 class Transcriber:
 
     @staticmethod
     def transcribe(video_path: str):
+        input_file = Path(video_path)
+        if not input_file.is_file():
+            raise FileNotFoundError(f"Video file not found: {input_file}")
 
-        segments, info = model.transcribe(video_path)
+        segments, info = _get_model().transcribe(str(input_file))
 
         transcript = []
 

@@ -1,21 +1,19 @@
-import os
-
-from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv()
+from app.config import settings
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-MODEL = os.getenv("LLM_MODEL")
+client = Groq(api_key=settings.GROQ_API_KEY) if settings.GROQ_API_KEY else None
 
 
 class LLM:
 
     @staticmethod
     def generate(prompt: str):
+        if client is None:
+            raise RuntimeError("GROQ_API_KEY is not configured")
 
         response = client.chat.completions.create(
-            model=MODEL,
+            model=settings.LLM_MODEL,
             messages=[
                 {
                     "role": "user",

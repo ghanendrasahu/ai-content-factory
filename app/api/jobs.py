@@ -1,20 +1,39 @@
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.ai.clip_detector import ClipDetector
 from app.ai.transcriber import Transcriber
 from app.core.paths import OUTPUT_DIR
 from app.core.storage import jobs
+from app.logger import logger
 from app.models.job import Job
 from app.schemas.job import DownloadJobRequest
 
-from app.services.download_service import DownloadService
 from app.services.clip_renderer import ClipRenderer
-from app.services.video_optimizer import VideoOptimizer
+from app.services.download_service import DownloadService
 from app.services.pipeline import Pipeline
+from app.services.video_optimizer import VideoOptimizer
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+
+def _get_job_or_404(job_id: str) -> Job:
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+def _fail_job(job: Job, error: Exception) -> None:
+    job.set_state("failed", job.progress)
+    job.error = str(error)
+
+
+def _raise_service_error(error: Exception) -> None:
+    if isinstance(error, (ValueError, FileNotFoundError)):
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    raise HTTPException(status_code=500, detail="Internal processing error") from error
 
 
 # =========================
@@ -29,9 +48,7 @@ def run_pipeline_background(job_id: str):
     try:
         Pipeline.run(job)
     except Exception as e:
-        job.status = "failed"
-        job.step = "failed"
-        job.error = str(e)
+        _fail_job(job, e)
 
 
 # =========================
@@ -51,10 +68,7 @@ async def create_job():
 @router.get("/{job_id}")
 async def get_job(job_id: str):
 
-    job = jobs.get(job_id)
-
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     return {
         "job_id": job.job_id,
@@ -88,17 +102,19 @@ async def get_job(job_id: str):
 @router.post("/{job_id}/download")
 async def download_video(job_id: str, request: DownloadJobRequest):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
-    title, path = DownloadService.download(str(request.url))
+    try:
+        job.set_state("downloading", 10)
+        title, path = DownloadService.download(str(request.url))
+    except Exception as e:
+        logger.exception("api.download.failed job_id=%s", job_id)
+        _fail_job(job, e)
+        _raise_service_error(e)
 
     job.video_url = str(request.url)
     job.video_path = path
-    job.status = "queued"
-    job.step = "queued"
-    job.progress = 10
+    job.set_state("queued", 10)
 
     return {
         "job_id": job.job_id,
@@ -114,19 +130,21 @@ async def download_video(job_id: str, request: DownloadJobRequest):
 @router.post("/{job_id}/transcribe")
 async def transcribe_video(job_id: str):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     if not job.video_path:
         raise HTTPException(status_code=400, detail="Video not downloaded")
 
-    result = Transcriber.transcribe(job.video_path)
+    try:
+        job.set_state("transcribing", 30)
+        result = Transcriber.transcribe(job.video_path)
+    except Exception as e:
+        logger.exception("api.transcribe.failed job_id=%s", job_id)
+        _fail_job(job, e)
+        _raise_service_error(e)
 
     job.transcript = result["transcript"]
-    job.status = "queued"
-    job.step = "queued"
-    job.progress = 30
+    job.set_state("queued", 30)
 
     return {
         "status": job.status,
@@ -141,19 +159,21 @@ async def transcribe_video(job_id: str):
 @router.post("/{job_id}/detect-clips")
 async def detect_clips(job_id: str):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     if not job.transcript:
         raise HTTPException(status_code=400, detail="Transcript not found")
 
-    clips = ClipDetector.detect(job.transcript)
+    try:
+        job.set_state("detecting", 50)
+        clips = ClipDetector.detect(job.transcript)
+    except Exception as e:
+        logger.exception("api.detect.failed job_id=%s", job_id)
+        _fail_job(job, e)
+        _raise_service_error(e)
 
     job.clips = clips
-    job.status = "queued"
-    job.step = "queued"
-    job.progress = 50
+    job.set_state("queued", 50)
 
     return {
         "status": job.status,
@@ -167,9 +187,7 @@ async def detect_clips(job_id: str):
 @router.post("/{job_id}/render-clips")
 async def render_clips(job_id: str):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     if not job.clips:
         raise HTTPException(status_code=400, detail="No clips found")
@@ -177,16 +195,20 @@ async def render_clips(job_id: str):
     if not job.video_path:
         raise HTTPException(status_code=400, detail="No video found")
 
-    output_files = ClipRenderer.render(
-        job.video_path,
-        job.clips,
-        job.job_id
-    )
+    try:
+        job.set_state("rendering", 70)
+        output_files = ClipRenderer.render(
+            job.video_path,
+            job.clips,
+            job.job_id
+        )
+    except Exception as e:
+        logger.exception("api.render.failed job_id=%s", job_id)
+        _fail_job(job, e)
+        _raise_service_error(e)
 
     job.clip_outputs = output_files
-    job.status = "queued"
-    job.step = "queued"
-    job.progress = 70
+    job.set_state("queued", 70)
 
     return {
         "status": job.status,
@@ -200,9 +222,7 @@ async def render_clips(job_id: str):
 @router.post("/{job_id}/make-vertical")
 async def make_vertical(job_id: str):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     if not job.video_path:
         raise HTTPException(status_code=400, detail="No video found")
@@ -210,16 +230,20 @@ async def make_vertical(job_id: str):
     source_path = job.clip_outputs[0] if job.clip_outputs else job.video_path
     output_path = OUTPUT_DIR / f"{job.job_id}_vertical.mp4"
 
-    result = VideoOptimizer.make_vertical(
-        source_path,
-        str(output_path),
-        job.transcript,
-    )
+    try:
+        job.set_state("optimizing", 90)
+        result = VideoOptimizer.make_vertical(
+            source_path,
+            str(output_path),
+            job.transcript,
+        )
+    except Exception as e:
+        logger.exception("api.optimize.failed job_id=%s", job_id)
+        _fail_job(job, e)
+        _raise_service_error(e)
 
     job.final_video = result
-    job.status = "completed"
-    job.step = "completed"
-    job.progress = 100
+    job.set_state("completed", 100)
 
     return {
         "status": job.status,
@@ -233,16 +257,12 @@ async def make_vertical(job_id: str):
 @router.post("/{job_id}/process")
 async def process_job(job_id: str, background_tasks: BackgroundTasks):
 
-    job = jobs.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_or_404(job_id)
 
     if not job.video_url:
         raise HTTPException(status_code=400, detail="No video URL set")
 
-    job.status = "queued"
-    job.step = "queued"
-    job.progress = 0
+    job.set_state("queued", 0)
     job.error = None
 
     background_tasks.add_task(run_pipeline_background, job_id)
@@ -252,3 +272,4 @@ async def process_job(job_id: str, background_tasks: BackgroundTasks):
         "status": job.status,
         "message": "Processing started in background",
     }
+

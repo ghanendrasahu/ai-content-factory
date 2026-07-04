@@ -2,8 +2,12 @@ __pycache__/
 *.pyc
 .env
 .venv/
+.pytest_cache/
+.ruff_cache/
+.codex_tmp/
 downloads/
 outputs/
+temp/
 logs/
 *.db
 .vscode/

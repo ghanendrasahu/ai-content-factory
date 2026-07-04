@@ -1,13 +1,15 @@
 from pathlib import Path
+from time import perf_counter
 
 import ffmpeg
 
+from app.config import settings
 from app.core.paths import OUTPUT_DIR, ensure_directories
 from app.logger import logger
+from app.services.video_optimizer import VideoOptimizer
 
 
 class ClipRenderer:
-
     @staticmethod
     def render(video_path: str, clips: list, job_id: str):
         ensure_directories()
@@ -18,8 +20,7 @@ class ClipRenderer:
 
         probe = ffmpeg.probe(str(input_file))
         has_audio = any(
-            stream.get("codec_type") == "audio"
-            for stream in probe.get("streams", [])
+            stream.get("codec_type") == "audio" for stream in probe.get("streams", [])
         )
 
         output_files = []
@@ -32,32 +33,38 @@ class ClipRenderer:
 
             try:
                 if end <= start:
-                    raise ValueError(
-                        f"Invalid clip range: start={start}, end={end}"
-                    )
+                    raise ValueError(f"Invalid clip range: start={start}, end={end}")
 
                 logger.info(
-                    f"Rendering clip {i + 1}: {start:.2f}s - {end:.2f}s"
+                    "renderer.start clip=%s start=%.2f end=%.2f",
+                    i + 1,
+                    start,
+                    end,
                 )
+                started_at = perf_counter()
 
                 source = ffmpeg.input(str(input_file), ss=start, t=end - start)
-                video = source.video.filter(
-                    "scale",
-                    1080,
-                    1920,
-                    force_original_aspect_ratio="increase",
-                ).filter(
-                    "crop",
-                    1080,
-                    1920,
-                    "(iw-ow)/2",
-                    "(ih-oh)/2",
-                ).filter("setsar", 1)
+                video = (
+                    source.video.filter(
+                        "scale",
+                        settings.TARGET_WIDTH,
+                        settings.TARGET_HEIGHT,
+                        force_original_aspect_ratio="increase",
+                    )
+                    .filter(
+                        "crop",
+                        settings.TARGET_WIDTH,
+                        settings.TARGET_HEIGHT,
+                        "(iw-ow)/2",
+                        "(ih-oh)/2",
+                    )
+                    .filter("setsar", 1)
+                )
 
                 output_kwargs = dict(
                     vcodec="libx264",
-                    preset="fast",
-                    crf=20,
+                    preset=settings.VIDEO_PRESET,
+                    crf=settings.VIDEO_CRF,
                     pix_fmt="yuv420p",
                     movflags="+faststart",
                     format="mp4",
@@ -69,7 +76,7 @@ class ClipRenderer:
                         source.audio,
                         str(output_file),
                         acodec="aac",
-                        audio_bitrate="192k",
+                        audio_bitrate=settings.AUDIO_BITRATE,
                         **output_kwargs,
                     )
                 else:
@@ -92,20 +99,22 @@ class ClipRenderer:
                         f"Rendered clip was not created: {output_file}"
                     )
 
+                VideoOptimizer.verify_video(output_file)
                 output_files.append(str(output_file))
 
-                logger.info(f"Clip {i + 1} rendered successfully.")
+                logger.info(
+                    "renderer.complete clip=%s output=%s elapsed=%.2fs",
+                    i + 1,
+                    output_file,
+                    perf_counter() - started_at,
+                )
 
             except ffmpeg.Error:
-                logger.exception(
-                    f"FFmpeg failed while rendering clip {i + 1}"
-                )
+                logger.exception(f"FFmpeg failed while rendering clip {i + 1}")
                 raise
 
             except Exception:
-                logger.exception(
-                    f"Unexpected error while rendering clip {i + 1}"
-                )
+                logger.exception(f"Unexpected error while rendering clip {i + 1}")
                 raise
 
         return output_files
