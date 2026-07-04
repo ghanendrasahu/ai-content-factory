@@ -19,3 +19,15 @@ class JsonParser:
             text = match.group(0)
 
         return json.loads(text)
+
+    @staticmethod
+    def parse_object(text: str):
+        text = text.strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+
+        if match:
+            text = match.group(0)
+
+        return json.loads(text)

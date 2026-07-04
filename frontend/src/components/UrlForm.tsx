@@ -5,12 +5,23 @@ import {
   processJob,
 } from "../api/client";
 
+import { useJob } from "../context/JobContext";
+
 function UrlForm() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const {
+  jobId,
+  setJobId,
+  setStatus,
+  setStep,
+  setProgress,
+  setVideoPath,
+  } = useJob();
+
   async function handleGenerate() {
-    if (!url) {
+    if (!url.trim()) {
       alert("Please enter a YouTube URL.");
       return;
     }
@@ -18,19 +29,35 @@ function UrlForm() {
     try {
       setLoading(true);
 
-      // 1. Create Job
+      // Reset previous state
+      setStatus("creating");
+      setStep("Creating Job");
+      setProgress(0);
+
+      // Create Job
       const job = await createJob();
 
-      // 2. Download
+      setJobId(job.job_id);
+
+      // Download
+      setStatus("downloading");
+      setStep("Downloading Video");
+      setProgress(10);
+
       await downloadVideo(job.job_id, url);
 
-      // 3. Start Background Pipeline
+      // Start pipeline
       await processJob(job.job_id);
 
-      alert(`Pipeline started!\nJob ID: ${job.job_id}`);
+      setStatus("processing");
+      setStep("Pipeline Started");
+      setProgress(15);
+
     } catch (error) {
       console.error(error);
-      alert("Something went wrong.");
+
+      setStatus("failed");
+      setStep("Error");
     } finally {
       setLoading(false);
     }
@@ -56,7 +83,7 @@ function UrlForm() {
         onClick={handleGenerate}
         disabled={loading}
         style={{
-          marginTop: "15px",
+          marginTop: 15,
           padding: "12px 20px",
         }}
       >

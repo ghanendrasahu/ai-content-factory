@@ -1,21 +1,30 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.jobs import router as jobs_router
+from app.core.paths import DOWNLOAD_DIR, OUTPUT_DIR, TEMP_DIR, ensure_directories
 
 app = FastAPI(title="AI Content Factory")
+ensure_directories()
 
-# Allow React frontend to access the API
+# ------------------------
+# CORS
+# ------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-    ],
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ------------------------
+# Static Files
+# ------------------------
+app.mount("/downloads", StaticFiles(directory=str(DOWNLOAD_DIR)), name="downloads")
+app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
+app.mount("/temp", StaticFiles(directory=str(TEMP_DIR)), name="temp")
 
 app.include_router(jobs_router)
 
