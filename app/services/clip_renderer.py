@@ -1,6 +1,7 @@
-import os
 from pathlib import Path
 import ffmpeg
+
+from app.logger import logger
 
 
 OUTPUT_DIR = Path("outputs")
@@ -10,7 +11,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 class ClipRenderer:
 
     @staticmethod
-    def render(video_path: str, clips: list):
+    def render(video_path: str, clips: list, job_id: str):
 
         output_files = []
 
@@ -19,11 +20,18 @@ class ClipRenderer:
             start = clip["start"]
             end = clip["end"]
 
-            output_file = OUTPUT_DIR / f"clip_{i+1}.mp4"
+            output_file = OUTPUT_DIR / f"{job_id}_clip_{i + 1}.mp4"
 
             try:
+
                 if end <= start:
-                    raise ValueError(f"Invalid clip range: start={start}, end={end}")
+                    raise ValueError(
+                        f"Invalid clip range: start={start}, end={end}"
+                    )
+
+                logger.info(
+                    f"Rendering clip {i + 1}: {start:.2f}s - {end:.2f}s"
+                )
 
                 (
                     ffmpeg
@@ -33,7 +41,7 @@ class ClipRenderer:
                         vcodec="libx264",
                         acodec="aac",
                         preset="fast",
-                        vf="scale=1080:1920"
+                        vf="scale=1080:1920",
                     )
                     .overwrite_output()
                     .run(capture_stdout=True, capture_stderr=True)
@@ -41,13 +49,18 @@ class ClipRenderer:
 
                 output_files.append(str(output_file))
 
-            except ffmpeg.Error as e:
-                print(f"\nFFMPEG ERROR (clip {i+1})")
-                print(e.stderr.decode() if e.stderr else "No stderr output")
+                logger.info(f"Clip {i + 1} rendered successfully.")
+
+            except ffmpeg.Error:
+                logger.exception(
+                    f"FFmpeg failed while rendering clip {i + 1}"
+                )
                 raise
 
-            except Exception as e:
-                print(f"\nGENERAL ERROR (clip {i+1}): {e}")
+            except Exception:
+                logger.exception(
+                    f"Unexpected error while rendering clip {i + 1}"
+                )
                 raise
 
         return output_files

@@ -76,7 +76,11 @@ class Pipeline:
         job.step = "rendering_clips"
         job.progress = 70
 
-        clip_outputs = ClipRenderer.render(job.video_path, job.clips)
+        clip_outputs = ClipRenderer.render(
+            job.video_path,
+            job.clips,
+            job.job_id
+        )
 
         job.clip_outputs = clip_outputs
         job.status = "clips_rendered"

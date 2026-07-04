@@ -1,4 +1,5 @@
 import json
+import re
 
 
 class JsonParser:
@@ -8,8 +9,13 @@ class JsonParser:
 
         text = text.strip()
 
-        if text.startswith("```json"):
-            text = text.replace("```json", "")
-            text = text.replace("```", "")
+        # Remove markdown code fences
+        text = text.replace("```json", "").replace("```", "").strip()
+
+        # Extract the first JSON array if extra text is present
+        match = re.search(r"\[.*\]", text, re.DOTALL)
+
+        if match:
+            text = match.group(0)
 
         return json.loads(text)
