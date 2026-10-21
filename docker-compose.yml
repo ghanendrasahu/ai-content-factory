@@ -11,3 +11,4 @@ services:
       - ./downloads:/app/downloads
       - ./outputs:/app/outputs
       - ./temp:/app/temp
+      - ./data:/app/data # durable job store (SQLite) survives restarts

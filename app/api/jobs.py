@@ -1,9 +1,10 @@
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.ai.clip_detector import ClipDetector
 from app.ai.transcriber import Transcriber
+from app.api.deps import require_api_key
 from app.core.paths import OUTPUT_DIR
 from app.core.storage import jobs
 from app.logger import logger
@@ -54,7 +55,7 @@ def run_pipeline_background(job_id: str):
 # =========================
 # CREATE JOB
 # =========================
-@router.post("")
+@router.post("", dependencies=[Depends(require_api_key)])
 async def create_job():
     job_id = str(uuid4())
     job = Job(job_id=job_id)
@@ -102,7 +103,7 @@ async def get_job(job_id: str):
 # =========================
 # DOWNLOAD VIDEO
 # =========================
-@router.post("/{job_id}/download")
+@router.post("/{job_id}/download", dependencies=[Depends(require_api_key)])
 async def download_video(job_id: str, request: DownloadJobRequest):
     job = _get_job_or_404(job_id)
 
@@ -129,7 +130,7 @@ async def download_video(job_id: str, request: DownloadJobRequest):
 # =========================
 # TRANSCRIBE
 # =========================
-@router.post("/{job_id}/transcribe")
+@router.post("/{job_id}/transcribe", dependencies=[Depends(require_api_key)])
 async def transcribe_video(job_id: str):
     job = _get_job_or_404(job_id)
 
