@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "8000:8000"
+    # Secrets injected at runtime only (never baked into image layers thanks
+    # to .dockerignore); rotate any key you exposed before this fix.
     env_file:
       - .env
     volumes:

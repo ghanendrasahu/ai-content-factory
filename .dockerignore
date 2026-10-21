@@ -1,0 +1,30 @@
+# Secrets first: never enter image layers.
+.env
+.env.*
+!.env.example
+
+# VCS and tooling caches
+.git
+.github
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.codex_tmp/
+.coverage
+htmlcov/
+
+# Apps not needed by the runtime container
+frontend/
+backend/
+tests/
+task.md
+
+# Runtime artifacts arrive via compose volumes, not the image
+downloads/
+outputs/
+temp/
+logs/
+data/
