@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DOWNLOAD_DIR: str = "downloads"
     OUTPUT_DIR: str = "outputs"
     TEMP_DIR: str = "temp"
+    DATA_DIR: str = "data"
 
     GROQ_API_KEY: str = ""
     LLM_MODEL: str = "llama-3.1-8b-instant"
@@ -54,6 +55,12 @@ class Settings(BaseSettings):
     CLEANUP_DELETE_DOWNLOADS: bool = False
 
     STORAGE_BACKEND: str = "local"
+
+    # Durable job store (SQLite WAL; mounted via compose `./data`).
+    JOB_STORE_DB: str = "jobs.db"
+
+    # Non-empty list -> POST /jobs (and other mutating routes) require X-API-Key.
+    API_KEYS: list[str] = []
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

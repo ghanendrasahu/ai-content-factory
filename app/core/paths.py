@@ -6,10 +6,12 @@ BASE_DIR = Path(settings.BASE_DIR).resolve()
 DOWNLOAD_DIR = (BASE_DIR / settings.DOWNLOAD_DIR).resolve()
 OUTPUT_DIR = (BASE_DIR / settings.OUTPUT_DIR).resolve()
 TEMP_DIR = (BASE_DIR / settings.TEMP_DIR).resolve()
+DATA_DIR = (BASE_DIR / settings.DATA_DIR).resolve()
+JOBS_DB: Path = DATA_DIR / settings.JOB_STORE_DB
 
 
 def ensure_directories() -> None:
-    for directory in (DOWNLOAD_DIR, OUTPUT_DIR, TEMP_DIR):
+    for directory in (DOWNLOAD_DIR, OUTPUT_DIR, TEMP_DIR, DATA_DIR):
         directory.mkdir(parents=True, exist_ok=True)
 
 
