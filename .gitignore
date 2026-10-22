@@ -9,6 +9,9 @@ __pycache__/
 downloads/
 outputs/
 temp/
+
+# Durable job store (SQLite WAL) - runtime state, never committed
+data/
 logs/
 *.db
 .vscode/
