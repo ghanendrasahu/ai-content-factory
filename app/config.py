@@ -56,11 +56,29 @@ class Settings(BaseSettings):
 
     STORAGE_BACKEND: str = "local"
 
+    # --- YouTube publishing (Data API) -------------------------------------
+    # OAuth2 client of a Google Cloud project with the youtube.upload scope.
+    YOUTUBE_CLIENT_ID: str = ""
+    YOUTUBE_CLIENT_SECRET: str = ""
+    YOUTUBE_REFRESH_TOKEN: str = ""
+    # Default metadata for published videos.
+    YOUTUBE_CATEGORY_ID: str = "27"  # Science & Technology
+    YOUTUBE_DEFAULT_PRIVACY: str = "private"  # private | unlisted | public
+    YOUTUBE_TAGS: list[str] = []
+    YOUTUBE_PUBLISH_MADE_FOR_KIDS: bool = False
+    # Publish automatically at the end of the pipeline.
+    YOUTUBE_PUBLISH_ENABLED: bool = False
+    YOUTUBE_UPLOAD_CHUNK_BYTES: int = 8388608  # 8 MiB resumable chunks
+    YOUTUBE_PUBLISH_TIMEOUT_SECONDS: int = 60
+
     # Durable job store (SQLite WAL; mounted via compose `./data`).
     JOB_STORE_DB: str = "jobs.db"
 
     # Non-empty list -> POST /jobs (and other mutating routes) require X-API-Key.
     API_KEYS: list[str] = []
+
+    # Pipeline engine: "graph" (LangGraph state machine) or "linear".
+    PIPELINE_ENGINE: str = "graph"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

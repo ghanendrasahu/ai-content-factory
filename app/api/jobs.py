@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from pathlib import Path
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.ai.clip_detector import ClipDetector
@@ -9,12 +11,19 @@ from app.core.paths import OUTPUT_DIR
 from app.core.storage import jobs
 from app.logger import logger
 from app.models.job import Job
-from app.schemas.job import DownloadJobRequest
+from app.schemas.job import DownloadJobRequest, PublishJobRequest
 
 from app.services.clip_renderer import ClipRenderer
 from app.services.download_service import DownloadService
 from app.services.pipeline import Pipeline
 from app.services.video_optimizer import VideoOptimizer
+from app.services.youtube_publisher import (
+    AuthError,
+    InvalidRequestError,
+    PublishError,
+    QuotaError,
+    YouTubePublisher,
+)
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -64,6 +73,49 @@ async def create_job():
 
 
 # =========================
+# PUBLISH TO YOUTUBE
+# =========================
+@router.post("/{job_id}/publish", dependencies=[Depends(require_api_key)])
+async def publish_job(job_id: str, request: PublishJobRequest | None = None):
+    """Publish a rendered job to YouTube (real resumable upload)."""
+    job = _get_job_or_404(job_id)
+
+    if not job.final_video or not Path(job.final_video).is_file():
+        raise HTTPException(
+            status_code=400,
+            detail="Job has no rendered video to publish - run /process first.",
+        )
+
+    options = request or PublishJobRequest()
+    try:
+        metadata = YouTubePublisher.build_metadata(
+            title=options.title,
+            description=options.description,
+            tags=options.tags,
+            privacy_status=options.privacy_status,
+            content_pack=job.content_pack,
+        )
+        published = YouTubePublisher.publish(
+            job.final_video,
+            metadata,
+            dry_run=options.dry_run,
+        )
+    except InvalidRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except QuotaError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    except AuthError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except PublishError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    job.published_video = published.to_dict()
+    return job.published_video
+
+
+# =========================
 # GET JOB (SINGLE SOURCE OF TRUTH)
 # =========================
 @router.get("/{job_id}")
@@ -88,6 +140,7 @@ async def get_job(job_id: str):
         "thumbnail_path": getattr(job, "thumbnail_path", None),
         "subtitle_path": getattr(job, "subtitle_path", None),
         "platform_exports": getattr(job, "platform_exports", {}),
+        "published_video": getattr(job, "published_video", None),
         "elapsed_seconds": getattr(job, "elapsed_seconds", 0),
         "estimated_remaining_seconds": getattr(
             job,

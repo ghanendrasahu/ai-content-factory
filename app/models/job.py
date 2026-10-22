@@ -9,6 +9,7 @@ VALID_JOB_STATES = {
     "content_generation",
     "rendering",
     "optimizing",
+    "publishing",
     "completed",
     "failed",
 }
@@ -37,6 +38,8 @@ class Job:
     thumbnail_path: Optional[str] = None
     subtitle_path: Optional[str] = None
     platform_exports: dict = field(default_factory=dict)
+    published_video: Optional[dict] = None
+    publish_requested: bool = False
     elapsed_seconds: float = 0.0
     estimated_remaining_seconds: float | None = None
     failure_report: Optional[dict] = None

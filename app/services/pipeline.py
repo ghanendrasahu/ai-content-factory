@@ -15,6 +15,7 @@ from app.services.progress import ProgressTracker
 from app.services.subtitles import SubtitleService
 from app.services.thumbnail import ThumbnailGenerator
 from app.services.video_optimizer import VideoOptimizer
+from app.services.youtube_publisher import YouTubePublisher
 
 
 class Pipeline:
@@ -149,6 +150,22 @@ class Pipeline:
                     key: preset.__dict__
                     for key, preset in PlatformExportPresets.all().items()
                 }
+
+            if settings.YOUTUBE_PUBLISH_ENABLED and job.publish_requested:
+                logger.info("Step 6/6 publishing to YouTube")
+                job.apply_progress(tracker.snapshot("publishing", 95))
+
+                metadata = YouTubePublisher.build_metadata(content_pack=job.content_pack)
+                published = retry.run(
+                    lambda: YouTubePublisher.publish(job.final_video, metadata),
+                    "publish",
+                )
+                job.published_video = published.to_dict()
+                logger.info(
+                    "Published to YouTube: id=%s url=%s",
+                    job.published_video.get("video_id"),
+                    job.published_video.get("url"),
+                )
 
             job.apply_progress(tracker.snapshot("completed", 100))
             cleanup_job_temp_files(job.job_id)
