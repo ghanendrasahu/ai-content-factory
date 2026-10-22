@@ -70,6 +70,17 @@ uvicorn app.main:app --reload
 
 Install FFmpeg and FFprobe on PATH.
 
+The dashboard is a separate Vite app:
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:5173
+```
+
+Without a `GROQ_API_KEY` the pipeline still runs - the content pack degrades to
+template text, so the media pipeline can be exercised offline.
+
 ## Docker
 
 ```bash
@@ -77,6 +88,48 @@ docker compose up --build
 ```
 
 The API will be available at `http://localhost:8000`.
+
+## Agent graph
+
+The pipeline is a LangGraph state machine (`app/agents/graph.py`):
+
+```text
+plan -> acquire -> transcribe -> detect -> package -> render -> optimize
+     -> [subtitle] -> [thumbnail] -> [publish] -> finalize
+```
+
+* `plan` decides which optional stages run (feature flags + the request).
+* Optional stages are routed around entirely when disabled - no wasted work.
+* Every node reuses the existing services and the shared retry manager.
+* Nodes mark the job `failed` (with a failure report) or `cancelled` themselves.
+* `PIPELINE_ENGINE=linear` runs the original sequential pipeline instead;
+  if `langgraph` is not installed the service falls back to it automatically.
+
+## Job control
+
+| Action | Behaviour |
+|---|---|
+| `POST /jobs/{id}/retry` | Re-runs a failed/cancelled job with the same inputs |
+| `POST /jobs/{id}/cancel` | Marks the job `cancelled`; the run stops at the next stage boundary |
+| `DELETE /jobs/{id}` | Removes the job from the store |
+| `GET /settings` | Feature flags and limits for the UI (never secrets) |
+
+Cancellation is cooperative: the worker checks the job state between stages,
+so a cancel never kills a process mid-write.
+
+## Dashboard
+
+`frontend/` is a React + Vite app:
+
+* job progress, clips, content pack and the rendered vertical video
+* **job actions** - retry, cancel, delete - wired to the endpoints above
+* **dark mode** with the preference persisted in `localStorage`
+* **runtime badges** (engine, caption format, thumbnail template, YouTube
+  readiness) read from `GET /settings`
+
+```bash
+cd frontend && npm run dev
+```
 
 ## Environment Variables
 
@@ -258,12 +311,23 @@ temp/                 intermediate files, gitignored
 ## Testing
 
 ```bash
-python -m pytest -q
-python -m ruff check app tests
-python -m black --check app tests
+python -m pytest -q                              # 88 tests, offline and seeded
+python -m ruff check app tests scripts
+python -m black --check app tests scripts
+python scripts/verify_publish.py                  # upload path over real HTTP
+
+cd frontend && npm run lint && npm run build      # eslint + type-check + bundle
 ```
 
-CI runs install, Black, Ruff, Pytest, and Docker build validation hooks.
+CI runs four gates: Python (Black + Ruff + Pytest), the frontend
+(ESLint + type-check + build), a hardened Docker build (no compiler in the
+runtime image, non-root user, readiness probe) and the Python suite on
+`ubuntu-latest` with FFmpeg installed.
+
+The upload path is verified without any YouTube account: a local server
+speaks the YouTube Data API contract (token exchange, resumable session,
+`308 Resume Incomplete`, final resource and the 403/400/503 error paths), so
+socket I/O, header handling and resume behaviour are all exercised.
 
 ## Troubleshooting
 
@@ -272,7 +336,18 @@ CI runs install, Black, Ruff, Pytest, and Docker build validation hooks.
 - Slow transcription: use a smaller Whisper model or GPU settings.
 - GPU unavailable: the app falls back to CPU automatically.
 - Static 404: verify files exist under `downloads/` or `outputs/`.
+- `credentials incomplete`: run `python scripts/publish.py --check` - it lists
+  the missing variables; `scripts/youtube_authorize.py --write-env` mints them.
+- `quotaExceeded`: the channel's daily upload quota is spent - retry tomorrow.
+- `401 / invalid_grant`: the refresh token was revoked - re-run the
+  authorization helper.
+- Job stuck in `queued`: the SQLite job store (`data/jobs.db`) holds the state;
+  delete the file to reset.
 
 ## Production Notes
 
-This project is production-ready for a single-node deployment. For higher scale, replace in-memory jobs with a database, move background work to a durable queue, and use object storage for generated assets.
+This project is production-ready for a single-node deployment. The job store
+is already durable (SQLite in WAL mode, mounted as a volume in compose), and
+the API image is hardened (non-root, no compiler, secrets injected at run
+time). For higher scale, move background work to a durable queue and use
+object storage for generated assets.
