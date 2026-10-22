@@ -1,4 +1,4 @@
-﻿# AI Content Factory
+# AI Content Factory
 
 AI Content Factory is a FastAPI pipeline that turns a YouTube URL into short-form vertical video assets for YouTube Shorts, Instagram Reels, TikTok, and Facebook Reels.
 
@@ -351,3 +351,9 @@ is already durable (SQLite in WAL mode, mounted as a volume in compose), and
 the API image is hardened (non-root, no compiler, secrets injected at run
 time). For higher scale, move background work to a durable queue and use
 object storage for generated assets.
+
+## License
+
+MIT (c) 2026 ghanendrasahu - see [LICENSE](LICENSE).
+
+Issues and pull requests are welcome.
