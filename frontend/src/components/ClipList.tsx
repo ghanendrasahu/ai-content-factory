@@ -1,4 +1,5 @@
 import { useJob } from "../context/JobContext";
+import type { Clip } from "../types/job";
 
 function ClipList() {
   const { clips, setSelectedClip } = useJob();
@@ -14,8 +15,8 @@ function ClipList() {
       <div style={{ display: "grid", gap: 10 }}>
         {clips
           .slice()
-          .sort((a: any, b: any) => b.score - a.score)
-          .map((clip: any, index: number) => (
+          .sort((a: Clip, b: Clip) => b.score - a.score)
+          .map((clip: Clip, index: number) => (
             <div
               key={index}
               onClick={() => setSelectedClip(clip)}

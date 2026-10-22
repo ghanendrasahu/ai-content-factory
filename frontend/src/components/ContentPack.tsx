@@ -1,8 +1,4 @@
-import { useJob } from "../context/JobContext";
-
 function ContentPack() {
-  const { status } = useJob();
-
   // NOTE: later we will connect contentPack state
   return (
     <div style={{ marginTop: 30 }}>

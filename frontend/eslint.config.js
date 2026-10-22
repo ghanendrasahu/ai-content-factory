@@ -19,4 +19,12 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Context modules intentionally export a provider *and* its hook; the
+    // fast-refresh rule only allows component-only files.
+    files: ['src/context/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

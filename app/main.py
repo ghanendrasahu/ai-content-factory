@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.jobs import router as jobs_router
+from app.api.settings import router as settings_router
 from app.config import settings
 from app.core.paths import DOWNLOAD_DIR, OUTPUT_DIR, TEMP_DIR, ensure_directories
 from app.core.storage import jobs
@@ -32,6 +33,9 @@ app.mount("/downloads", StaticFiles(directory=str(DOWNLOAD_DIR)), name="download
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 app.mount("/temp", StaticFiles(directory=str(TEMP_DIR)), name="temp")
 
+# The settings router must be registered first: the jobs router owns
+# "/jobs/{job_id}", and Starlette matches routes in registration order.
+app.include_router(settings_router)
 app.include_router(jobs_router)
 
 

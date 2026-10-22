@@ -116,6 +116,55 @@ async def publish_job(job_id: str, request: PublishJobRequest | None = None):
 
 
 # =========================
+# JOB CONTROL: RETRY / CANCEL / DELETE
+# =========================
+@router.post("/{job_id}/retry", dependencies=[Depends(require_api_key)])
+async def retry_job(job_id: str, background_tasks: BackgroundTasks):
+    """Re-run a failed (or cancelled) job with the same inputs."""
+    job = _get_job_or_404(job_id)
+
+    if job.status in {"queued", "downloading", "transcribing", "detecting", "rendering"}:
+        raise HTTPException(
+            status_code=409, detail=f"Job is already running (status={job.status})"
+        )
+    if not job.video_url and not job.video_path:
+        raise HTTPException(status_code=400, detail="Job has no video to retry")
+
+    job.error = None
+    job.failure_report = None
+    job.set_state("queued", 0)
+    background_tasks.add_task(run_pipeline_background, job_id)
+
+    return {
+        "job_id": job_id,
+        "status": job.status,
+        "message": "Retry started in background",
+    }
+
+
+@router.post("/{job_id}/cancel", dependencies=[Depends(require_api_key)])
+async def cancel_job(job_id: str):
+    """Cancel a running job (honoured at the next stage boundary)."""
+    job = _get_job_or_404(job_id)
+
+    if job.status in {"completed", "failed", "cancelled"}:
+        raise HTTPException(
+            status_code=409, detail=f"Job already finished (status={job.status})"
+        )
+
+    job.set_state("cancelled", job.progress)
+    return {"job_id": job_id, "status": job.status, "progress": job.progress}
+
+
+@router.delete("/{job_id}", dependencies=[Depends(require_api_key)])
+async def delete_job(job_id: str):
+    """Remove a job from the store."""
+    _get_job_or_404(job_id)
+    del jobs[job_id]
+    return {"job_id": job_id, "deleted": True}
+
+
+# =========================
 # GET JOB (SINGLE SOURCE OF TRUTH)
 # =========================
 @router.get("/{job_id}")

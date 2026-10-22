@@ -22,6 +22,7 @@ from app.ai.clip_detector import ClipDetector
 from app.ai.content_packager import ContentPackager
 from app.ai.transcriber import Transcriber
 from app.config import settings
+from app.core.cancellation import JobCancelled, check_cancelled
 from app.core.paths import OUTPUT_DIR
 from app.logger import logger
 from app.services.clip_renderer import ClipRenderer
@@ -236,7 +237,13 @@ def _guard(node):
     def wrapped(state: JobState) -> dict[str, Any]:
         job = state.get("job")
         try:
+            check_cancelled(job)
             return node(state)
+        except JobCancelled:
+            if job is not None:
+                job.set_state("cancelled", job.progress)
+                job.error = "cancelled by user"
+            raise
         except Exception as exc:
             if job is not None:
                 job.set_state("failed", job.progress)

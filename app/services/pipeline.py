@@ -5,6 +5,7 @@ from app.ai.clip_detector import ClipDetector
 from app.ai.content_packager import ContentPackager
 from app.ai.transcriber import Transcriber
 from app.core.paths import OUTPUT_DIR, cleanup_job_temp_files, ensure_directories
+from app.core.cancellation import JobCancelled, check_cancelled
 from app.logger import logger
 from app.config import settings
 from app.services.self_healing import RecoveryStrategies, RetryManager
@@ -38,6 +39,7 @@ class Pipeline:
 
             logger.info("Step 1/5 downloading")
             job.apply_progress(tracker.snapshot("downloading", 10))
+            check_cancelled(job)
 
             if not job.video_url and not job.video_path:
                 raise ValueError("No video URL provided")
@@ -57,6 +59,7 @@ class Pipeline:
 
             logger.info("Step 2/5 transcribing")
             job.apply_progress(tracker.snapshot("transcribing", 30))
+            check_cancelled(job)
 
             result = retry.run(lambda: Transcriber.transcribe(video_path), "whisper")
             job.transcript = result["transcript"]
@@ -68,6 +71,7 @@ class Pipeline:
 
             logger.info("Step 3/5 detecting")
             job.apply_progress(tracker.snapshot("detecting", 45))
+            check_cancelled(job)
 
             clips = retry.run(lambda: ClipDetector.detect(job.transcript), "detect")
             if not clips:
@@ -78,6 +82,7 @@ class Pipeline:
 
             logger.info("Step 4/6 content_generation")
             job.apply_progress(tracker.snapshot("content_generation", 55))
+            check_cancelled(job)
             job.content_pack = retry.run(
                 lambda: ContentPackager.generate(job.transcript, clips),
                 "content_generation",
@@ -85,6 +90,7 @@ class Pipeline:
 
             logger.info("Step 4/5 rendering")
             job.apply_progress(tracker.snapshot("rendering", 70))
+            check_cancelled(job)
 
             clip_outputs = retry.run(
                 lambda: ClipRenderer.render(
@@ -106,6 +112,7 @@ class Pipeline:
 
             logger.info("Step 5/5 finalizing")
             job.apply_progress(tracker.snapshot("optimizing", 90))
+            check_cancelled(job)
 
             vertical_output = OUTPUT_DIR / f"{job.job_id}_vertical.mp4"
             source_clip = Pipeline._require_file(clip_outputs[0], "Rendered clip")
@@ -178,6 +185,12 @@ class Pipeline:
 
             return job
 
+        except JobCancelled:
+            job.set_state("cancelled", job.progress)
+            job.error = "cancelled by user"
+            cleanup_job_temp_files(job.job_id)
+            logger.info("Pipeline cancelled for job: %s", job.job_id)
+            raise
         except Exception as e:
             job.set_state("failed", job.progress)
             job.error = str(e)

@@ -12,6 +12,7 @@ VALID_JOB_STATES = {
     "publishing",
     "completed",
     "failed",
+    "cancelled",
 }
 
 

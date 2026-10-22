@@ -2,8 +2,9 @@ import {
   createContext,
   useContext,
   useState,
-  ReactNode,
 } from "react";
+
+import type { ReactNode } from "react";
 
 /**
  * Single clip structure from backend AI
@@ -24,7 +25,7 @@ interface ContentPack {
   description?: string;
   hashtags?: string[];
   caption?: string;
-  top_clips?: any[];
+  top_clips?: Clip[];
 }
 
 interface JobContextType {

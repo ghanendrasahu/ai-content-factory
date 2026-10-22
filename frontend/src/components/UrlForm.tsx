@@ -12,12 +12,10 @@ function UrlForm() {
   const [loading, setLoading] = useState(false);
 
   const {
-  jobId,
   setJobId,
   setStatus,
   setStep,
   setProgress,
-  setVideoPath,
   } = useJob();
 
   async function handleGenerate() {
