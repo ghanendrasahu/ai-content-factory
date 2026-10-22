@@ -48,7 +48,7 @@ def test_reads_stay_open_with_keys(keys_enabled):
     assert client.get("/health").status_code == 200
     assert client.get("/ready").status_code == 200
     assert client.get("/metrics").status_code == 200
-    assert client.get("/api/nothing") .status_code in {404, 405}
+    assert client.get("/api/nothing").status_code in {404, 405}
 
 
 def test_download_route_gated(keys_enabled):

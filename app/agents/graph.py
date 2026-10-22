@@ -139,9 +139,7 @@ def node_render(state: JobState) -> dict[str, Any]:
     job = state["job"]
     _progress(job, "rendering", 70)
     clip_outputs = _retry().run(
-        lambda: ClipRenderer.render(
-            state["video_path"], state["clips"], job.job_id
-        ),
+        lambda: ClipRenderer.render(state["video_path"], state["clips"], job.job_id),
         "render",
     )
     if not clip_outputs:

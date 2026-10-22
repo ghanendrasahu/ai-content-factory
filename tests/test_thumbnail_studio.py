@@ -67,9 +67,7 @@ def test_generate_poster_writes_a_file(tmp_path, monkeypatch):
     from app.core import paths as paths_module
 
     monkeypatch.setattr(paths_module, "OUTPUT_DIR", tmp_path)
-    monkeypatch.setattr(
-        "app.services.thumbnail.OUTPUT_DIR", tmp_path, raising=False
-    )
+    monkeypatch.setattr("app.services.thumbnail.OUTPUT_DIR", tmp_path, raising=False)
 
     output = ThumbnailGenerator.generate_poster("Poster title", "job-poster")
 

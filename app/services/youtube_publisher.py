@@ -244,7 +244,9 @@ def build_metadata(
     pack = content_pack or {}
     resolved_title = title or pack.get("title") or "AI Content Factory"
     resolved_description = description or pack.get("description") or ""
-    resolved_tags = tags if tags is not None else list(pack.get("tags") or settings.YOUTUBE_TAGS)
+    resolved_tags = (
+        tags if tags is not None else list(pack.get("tags") or settings.YOUTUBE_TAGS)
+    )
     resolved_privacy = privacy_status or settings.YOUTUBE_DEFAULT_PRIVACY
 
     if resolved_privacy not in {"private", "unlisted", "public"}:
@@ -305,7 +307,9 @@ def refresh_access_token(
             )
         if response.status == 403:
             raise QuotaError(f"YouTube OAuth refresh quota error (403): {detail}")
-        raise PublishError(f"YouTube OAuth refresh failed ({response.status}): {detail}")
+        raise PublishError(
+            f"YouTube OAuth refresh failed ({response.status}): {detail}"
+        )
 
     token = response.json().get("access_token")
     if not token:
@@ -343,7 +347,9 @@ def create_upload_session(
 
     location = response.header("Location")
     if not location:
-        raise UploadError("YouTube did not return a Location header for the upload session.")
+        raise UploadError(
+            "YouTube did not return a Location header for the upload session."
+        )
     return location
 
 

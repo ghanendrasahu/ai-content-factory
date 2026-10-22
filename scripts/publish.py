@@ -27,7 +27,9 @@ from app.services.youtube_publisher import (  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Publish a video to YouTube.")
-    parser.add_argument("--video", required=True, help="Path to the rendered video file")
+    parser.add_argument(
+        "--video", required=True, help="Path to the rendered video file"
+    )
     parser.add_argument("--title", default=None, help="Video title")
     parser.add_argument("--description", default=None, help="Video description")
     parser.add_argument("--tags", default="", help="Comma-separated tags")
@@ -53,9 +55,7 @@ def main() -> int:
             tags=tags or None,
             privacy_status=args.privacy,
         )
-        published = YouTubePublisher.publish(
-            args.video, metadata, dry_run=args.dry_run
-        )
+        published = YouTubePublisher.publish(args.video, metadata, dry_run=args.dry_run)
     except (PublishError, FileNotFoundError, ValueError) as exc:
         print(f"publish failed: {exc}", file=sys.stderr)
         return 1

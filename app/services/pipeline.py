@@ -162,7 +162,9 @@ class Pipeline:
                 logger.info("Step 6/6 publishing to YouTube")
                 job.apply_progress(tracker.snapshot("publishing", 95))
 
-                metadata = YouTubePublisher.build_metadata(content_pack=job.content_pack)
+                metadata = YouTubePublisher.build_metadata(
+                    content_pack=job.content_pack
+                )
                 published = retry.run(
                     lambda: YouTubePublisher.publish(job.final_video, metadata),
                     "publish",

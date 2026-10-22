@@ -186,7 +186,11 @@ def test_upload_quota_error_is_typed(tmp_path):
 def test_upload_invalid_request_is_typed(tmp_path):
     video = _video_file(tmp_path)
     http = FakeHttpClient(
-        [HttpResponse(status=400, headers={}, body=b'{"error": {"message": "badRequest"}}')]
+        [
+            HttpResponse(
+                status=400, headers={}, body=b'{"error": {"message": "badRequest"}}'
+            )
+        ]
     )
 
     with pytest.raises(InvalidRequestError):

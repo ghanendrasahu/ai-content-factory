@@ -11,7 +11,9 @@ class SubtitleService:
     """Subtitle generation (SRT / WebVTT / styled ASS) and burn-in."""
 
     @staticmethod
-    def generate(transcript: list, output_path: str | Path, fmt: str | None = None) -> str:
+    def generate(
+        transcript: list, output_path: str | Path, fmt: str | None = None
+    ) -> str:
         """Generate subtitles in the requested format (default from settings)."""
         resolved = (fmt or getattr(settings, "SUBTITLE_FORMAT", "srt")).lower()
         if resolved == "vtt":
@@ -55,8 +57,12 @@ class SubtitleService:
                 text = str(item.get("text", "")).strip()
                 if not text:
                     continue
-                start = SubtitleService._format_time(float(item.get("start", 0))).replace(",", ".")
-                end = SubtitleService._format_time(float(item.get("end", 0))).replace(",", ".")
+                start = SubtitleService._format_time(
+                    float(item.get("start", 0))
+                ).replace(",", ".")
+                end = SubtitleService._format_time(float(item.get("end", 0))).replace(
+                    ",", "."
+                )
                 handle.write(f"{start} --> {end}\n{text}\n\n")
 
         logger.info("subtitles.vtt_created path=%s", path)
@@ -109,9 +115,7 @@ class SubtitleService:
                     continue
                 start = SubtitleService._format_time_ass(float(item.get("start", 0)))
                 end = SubtitleService._format_time_ass(float(item.get("end", 0)))
-                handle.write(
-                    f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
-                )
+                handle.write(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n")
 
         logger.info("subtitles.ass_created path=%s", path)
         return str(path)

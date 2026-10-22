@@ -22,8 +22,7 @@ def require_api_key(
         return
 
     known = any(
-        secrets.compare_digest((x_api_key or "").encode(), key.encode())
-        for key in keys
+        secrets.compare_digest((x_api_key or "").encode(), key.encode()) for key in keys
     )
     if not known:
         raise HTTPException(status_code=401, detail="Missing or invalid API key")

@@ -123,7 +123,13 @@ async def retry_job(job_id: str, background_tasks: BackgroundTasks):
     """Re-run a failed (or cancelled) job with the same inputs."""
     job = _get_job_or_404(job_id)
 
-    if job.status in {"queued", "downloading", "transcribing", "detecting", "rendering"}:
+    if job.status in {
+        "queued",
+        "downloading",
+        "transcribing",
+        "detecting",
+        "rendering",
+    }:
         raise HTTPException(
             status_code=409, detail=f"Job is already running (status={job.status})"
         )

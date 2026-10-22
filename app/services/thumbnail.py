@@ -57,7 +57,11 @@ def _hex_to_rgba(color: str, alpha: int = 255) -> tuple[int, int, int, int]:
     if len(value) == 3:
         value = "".join(char * 2 for char in value)
     try:
-        red, green, blue = (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
+        red, green, blue = (
+            int(value[0:2], 16),
+            int(value[2:4], 16),
+            int(value[4:6], 16),
+        )
     except (ValueError, IndexError):
         red, green, blue = 255, 255, 255
     return red, green, blue, alpha
@@ -154,7 +158,9 @@ def _fetch_ai_background(prompt: str, style: ThumbnailStyle) -> Image.Image | No
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             body = response.read().decode("utf-8", errors="replace")
-    except Exception as exc:  # noqa: BLE001 - a failed provider must not break rendering
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 - a failed provider must not break rendering
         logger.warning("thumbnail.ai_background_failed error=%s", exc)
         return None
 
@@ -207,34 +213,61 @@ def _compose(image: Image.Image, title: str, style: ThumbnailStyle) -> Image.Ima
 
     if style.template == "split":
         bar_width = max(int(width * 0.012), 6)
-        draw.rectangle([margin, height // 2 - text_block_height // 2, margin + bar_width,
-                        height // 2 + text_block_height // 2], fill=accent)
+        draw.rectangle(
+            [
+                margin,
+                height // 2 - text_block_height // 2,
+                margin + bar_width,
+                height // 2 + text_block_height // 2,
+            ],
+            fill=accent,
+        )
         x = margin + bar_width + int(width * 0.03)
         y = height // 2 - text_block_height // 2
         for line in lines:
-            draw.text((x, y), line, font=font, fill=text_color,
-                      stroke_width=max(int(base_size * 0.06), 2), stroke_fill=(0, 0, 0, 220))
+            draw.text(
+                (x, y),
+                line,
+                font=font,
+                fill=text_color,
+                stroke_width=max(int(base_size * 0.06), 2),
+                stroke_fill=(0, 0, 0, 220),
+            )
             y += line_height
         return image
 
     if style.template == "minimal":
         y = height - margin - text_block_height
         for line in lines:
-            draw.text((margin, y), line, font=font, fill=text_color,
-                      stroke_width=max(int(base_size * 0.05), 2), stroke_fill=(0, 0, 0, 200))
+            draw.text(
+                (margin, y),
+                line,
+                font=font,
+                fill=text_color,
+                stroke_width=max(int(base_size * 0.05), 2),
+                stroke_fill=(0, 0, 0, 200),
+            )
             y += line_height
         return image
 
     # bold_caption (default)
     band_top = height - margin - text_block_height - int(base_size * 0.5)
     band_bottom = height - margin + int(base_size * 0.2)
-    draw.rectangle([0, band_top, width, band_bottom], fill=(0, 0, 0, style.band_opacity))
+    draw.rectangle(
+        [0, band_top, width, band_bottom], fill=(0, 0, 0, style.band_opacity)
+    )
     y = band_top + int(base_size * 0.22)
     for line in lines:
         width_used = draw.textlength(line, font=font)
         x = (width - width_used) / 2
-        draw.text((x, y), line, font=font, fill=text_color,
-                  stroke_width=max(int(base_size * 0.07), 3), stroke_fill=(0, 0, 0, 235))
+        draw.text(
+            (x, y),
+            line,
+            font=font,
+            fill=text_color,
+            stroke_width=max(int(base_size * 0.07), 3),
+            stroke_fill=(0, 0, 0, 235),
+        )
         y += line_height
 
     accent_height = max(int(height * 0.012), 4)
@@ -264,7 +297,9 @@ class ThumbnailGenerator:
         if video_path:
             video_file = Path(video_path)
             if not video_file.is_file():
-                raise FileNotFoundError(f"Thumbnail input video not found: {video_file}")
+                raise FileNotFoundError(
+                    f"Thumbnail input video not found: {video_file}"
+                )
             frame_file = OUTPUT_DIR / f"{job_id}_frame.jpg"
             extracted = _extract_frame(video_file, frame_file)
             if extracted:
@@ -287,10 +322,16 @@ class ThumbnailGenerator:
         poster = _compose(canvas, title, resolved_style)
         poster.save(output_file, format="JPEG", quality=92)
 
-        logger.info("thumbnail.generated output=%s template=%s", output_file, resolved_style.template)
+        logger.info(
+            "thumbnail.generated output=%s template=%s",
+            output_file,
+            resolved_style.template,
+        )
         return str(output_file)
 
     @staticmethod
-    def generate_poster(title: str, job_id: str, style: ThumbnailStyle | None = None) -> str:
+    def generate_poster(
+        title: str, job_id: str, style: ThumbnailStyle | None = None
+    ) -> str:
         """Poster without a source video (AI background or generated artwork)."""
         return ThumbnailGenerator.generate(None, title, job_id, style=style)

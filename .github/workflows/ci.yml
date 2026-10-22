@@ -25,10 +25,69 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Black
-        run: python -m black --check app tests
+        run: python -m black --check app tests scripts
 
       - name: Ruff
-        run: python -m ruff check app tests
+        run: python -m ruff check app tests scripts
 
       - name: Pytest
         run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Type-check and build
+        run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the API image
+        run: docker build -t ai-content-factory:ci .
+
+      - name: Assert the runtime image has no compiler toolchain
+        run: |
+          if docker run --rm --entrypoint sh ai-content-factory:ci -c "command -v gcc"; then
+            echo "ERROR: gcc present in the runtime image"; exit 1
+          fi
+          echo "runtime image is clean (no gcc)"
+
+      - name: Verify non-root user and readiness probe
+        run: |
+          docker run -d --name probe -p 8000:8000 ai-content-factory:ci
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ready || true)
+            if [ "$code" = "200" ]; then
+              echo "readiness OK, container user: $(docker exec probe whoami)"
+              docker rm -f probe
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the readiness probe never went green"
+          docker logs probe
+          docker rm -f probe
+          exit 1
