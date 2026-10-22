@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from app.ai.clip_detector import ClipDetector
 from app.ai.transcriber import Transcriber
+from app.agents.runner import run_job
 from app.api.deps import require_api_key
 from app.core.paths import OUTPUT_DIR
 from app.core.storage import jobs
@@ -56,7 +57,7 @@ def run_pipeline_background(job_id: str):
         return
 
     try:
-        Pipeline.run(job)
+        run_job(job)
     except Exception as e:
         _fail_job(job, e)
 
