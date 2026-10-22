@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     YOUTUBE_PUBLISH_ENABLED: bool = False
     YOUTUBE_UPLOAD_CHUNK_BYTES: int = 8388608  # 8 MiB resumable chunks
     YOUTUBE_PUBLISH_TIMEOUT_SECONDS: int = 60
+    # Override the API base URL (tests, staging proxies). Empty = real Google
+    # endpoints (https://oauth2.googleapis.com + https://www.googleapis.com).
+    YOUTUBE_API_BASE_URL: str = ""
 
     # Durable job store (SQLite WAL; mounted via compose `./data`).
     JOB_STORE_DB: str = "jobs.db"

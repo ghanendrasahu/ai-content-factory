@@ -164,6 +164,35 @@ sent in 8 MiB chunks. Failures are typed - `AuthError` (re-authorise),
 `QuotaError` (daily limit) and `InvalidRequestError` (metadata) - so the API
 can answer 401/429/400 instead of a generic 500.
 
+### Verifying without credentials
+
+The upload path does not need a live YouTube account to prove itself:
+
+```bash
+python scripts/verify_publish.py
+```
+
+This starts a local server that speaks the YouTube Data API contract (OAuth
+token exchange, resumable session, `308 Resume Incomplete`, the final
+resource response) and drives the *real* publisher against it over HTTP - so
+socket I/O, header handling, `Content-Range` semantics, resume behaviour and
+response parsing are all exercised. Only the googleapis.com host itself is
+left out.
+
+The same stub runs as part of the test suite
+(`tests/test_youtube_publisher_http.py`), including the error paths
+(403 quota, 400 invalid request, 503 backend error).
+
+Once you have credentials, check them without uploading anything:
+
+```bash
+python scripts/publish.py --check    # mints a token, uploads nothing
+```
+
+`YOUTUBE_API_BASE_URL` points the publisher at a different API host (the
+stub, a proxy or a staging environment); leave it empty for the real Google
+endpoints.
+
 ## Directory Structure
 
 ```text

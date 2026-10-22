@@ -29,6 +29,18 @@ UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 WATCH_URL = "https://youtu.be/{video_id}"
 
 
+def token_endpoint() -> str:
+    """OAuth token endpoint (overridable for tests and proxies)."""
+    base = str(getattr(settings, "YOUTUBE_API_BASE_URL", "") or "").strip().rstrip("/")
+    return f"{base}/token" if base else TOKEN_URL
+
+
+def upload_endpoint() -> str:
+    """Resumable upload endpoint (overridable for tests and proxies)."""
+    base = str(getattr(settings, "YOUTUBE_API_BASE_URL", "") or "").strip().rstrip("/")
+    return f"{base}/upload/youtube/v3/videos" if base else UPLOAD_URL
+
+
 # =========================
 # ERRORS
 # =========================
@@ -294,7 +306,7 @@ def refresh_access_token(
 
     response = client.request(
         "POST",
-        TOKEN_URL,
+        token_endpoint(),
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data=payload,
     )
@@ -338,7 +350,7 @@ def create_upload_session(
     }
     response = client.request(
         "POST",
-        f"{UPLOAD_URL}?uploadType=resumable&part=snippet,status",
+        f"{upload_endpoint()}?uploadType=resumable&part=snippet,status",
         headers=headers,
         data=body,
     )
