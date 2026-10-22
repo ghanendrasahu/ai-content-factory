@@ -164,6 +164,28 @@ sent in 8 MiB chunks. Failures are typed - `AuthError` (re-authorise),
 `QuotaError` (daily limit) and `InvalidRequestError` (metadata) - so the API
 can answer 401/429/400 instead of a generic 500.
 
+### Getting the credentials (one-time, ~5 minutes)
+
+You do not need to hunt for an old token - mint a new one:
+
+1. [Google Cloud Console](https://console.cloud.google.com) -> create or pick a
+   project -> **APIs & Services -> Library** -> enable **YouTube Data API v3**.
+2. **Credentials -> Create credentials -> OAuth client ID -> Desktop app** ->
+   copy the client id and client secret.
+3. Run the helper (it opens the consent screen, captures the redirect and
+   exchanges the code for a refresh token):
+
+```bash
+python scripts/youtube_authorize.py \
+  --client-id "<id>" --client-secret "<secret>" --write-env
+```
+
+It writes the three values into `.env` (gitignored). Then confirm them with:
+
+```bash
+python scripts/publish.py --check
+```
+
 ### Verifying without credentials
 
 The upload path does not need a live YouTube account to prove itself:
