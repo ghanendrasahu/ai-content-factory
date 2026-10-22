@@ -9,6 +9,7 @@ ffmpeg-python==0.2.0
 loguru==0.7.3
 python-dotenv==1.2.2
 python-multipart==0.0.29
+langgraph==0.6.11
 black==26.5.1
 ruff==0.15.15
 pytest==9.0.3
