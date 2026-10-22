@@ -123,7 +123,7 @@ class Pipeline:
 
             if settings.ENABLE_SUBTITLES and job.transcript:
                 subtitle_path = OUTPUT_DIR / f"{job.job_id}.srt"
-                job.subtitle_path = SubtitleService.generate_srt(
+                job.subtitle_path = SubtitleService.generate(
                     job.transcript,
                     subtitle_path,
                 )

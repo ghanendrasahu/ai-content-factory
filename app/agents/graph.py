@@ -170,7 +170,7 @@ def node_subtitle(state: JobState) -> dict[str, Any]:
     job = state["job"]
     _progress(job, "optimizing", 92)
     subtitle_path = OUTPUT_DIR / f"{job.job_id}.srt"
-    job.subtitle_path = SubtitleService.generate_srt(state["transcript"], subtitle_path)
+    job.subtitle_path = SubtitleService.generate(state["transcript"], subtitle_path)
     subtitled_output = OUTPUT_DIR / f"{job.job_id}_vertical_subtitled.mp4"
     job.final_video = _retry().run(
         lambda: SubtitleService.burn(

@@ -31,10 +31,25 @@ class Settings(BaseSettings):
     ENABLE_SUBTITLES: bool = False
     SUBTITLE_FONT_SIZE: int = 42
     SUBTITLE_POSITION_MARGIN: int = 180
+    # Caption format: srt | vtt | ass
+    SUBTITLE_FORMAT: str = "srt"
+    SUBTITLE_STYLE_FONT: str = "Arial"
+    SUBTITLE_STYLE_OUTLINE: int = 2
+    SUBTITLE_STYLE_PRIMARY_COLOR: str = "&H00FFFFFF"
+    SUBTITLE_STYLE_BACKGROUND: str = "&H80000000"
 
     ENABLE_THUMBNAILS: bool = True
     THUMBNAIL_WIDTH: int = 1280
     THUMBNAIL_HEIGHT: int = 720
+    # Layout template: bold_caption | split | minimal
+    THUMBNAIL_TEMPLATE: str = "bold_caption"
+    THUMBNAIL_ACCENT_COLOR: str = "#FF3B30"
+    THUMBNAIL_TEXT_COLOR: str = "#FFFFFF"
+    THUMBNAIL_FONT_SCALE: float = 1.0
+    THUMBNAIL_MAX_LINES: int = 3
+    # Optional AI background provider (POST {prompt,width,height} -> {"url": ...}).
+    THUMBNAIL_AI_ENDPOINT: str = ""
+    THUMBNAIL_AI_API_KEY: str = ""
 
     ENABLE_PLATFORM_EXPORTS: bool = False
     CLIP_SELECTION_COUNT: int = 5
