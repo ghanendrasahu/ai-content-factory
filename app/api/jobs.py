@@ -16,7 +16,6 @@ from app.schemas.job import DownloadJobRequest, PublishJobRequest
 
 from app.services.clip_renderer import ClipRenderer
 from app.services.download_service import DownloadService
-from app.services.pipeline import Pipeline
 from app.services.video_optimizer import VideoOptimizer
 from app.services.youtube_publisher import (
     AuthError,
